@@ -10,7 +10,8 @@ npm test
 
 `npm test` runs the Vitest behavior suite and TypeScript typechecking. The suite
 covers accepted submissions, spam rejection, origin checks, configuration
-validation, and notification delivery behavior.
+validation, email validation, current-or-future date validation, and
+notification delivery behavior.
 
 ## Local browser test
 
@@ -53,10 +54,12 @@ Open `http://localhost:8000/contact.html`, submit the form, and verify:
 ## Curl test
 
 ```sh
+TEST_SENDER_ADDRESS="PRIVATE_SENDER_ADDRESS"
+
 curl -i \
   -H "Origin: http://localhost:8000" \
   -H "Content-Type: application/json" \
-  -d '{"email":"TEST_SENDER_ADDRESS","message":"Hello from curl","website":""}' \
+  -d "{\"email\":\"$TEST_SENDER_ADDRESS\",\"message\":\"Hello from curl\",\"website\":\"\"}" \
   http://localhost:8787/submit/contact
 ```
 

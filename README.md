@@ -32,7 +32,9 @@ This can run on Cloudflare's free tiers for small sites.
 - Embedded same-page form submissions
 - Form endpoints keyed by form id
 - Origin allowlisting per form
-- Required-field validation
+- Configurable required-field validation
+- Configurable email fields that must look valid
+- Configurable date fields that must be today or later
 - Honeypot and link-count spam filtering
 - Validated runtime configuration
 - Turnstile verification before database writes
