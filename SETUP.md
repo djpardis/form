@@ -1,0 +1,109 @@
+# Setup
+
+## Install
+
+```bash
+npm install
+npx wrangler d1 create form_submissions
+npm run db:migrate
+```
+
+For local development:
+
+```bash
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local
+npm run dev
+```
+
+## Configuration
+
+Bind each `env.<NAME>` from Cloudflare Secrets or Variables. Runtime behavior is the same; Secrets stay out of tracked config.
+
+| Name                   | Required                  | Set with     | Purpose                                                      |
+| ---------------------- | ------------------------- | ------------ | ------------------------------------------------------------ |
+| `DB`                   | yes                       | D1 binding   | Stores accepted submissions                                  |
+| `FORM_CONFIG`          | yes                       | `[vars]`     | Per-form origin, validation, spam, and notification settings |
+| `TURNSTILE_SECRET_KEY` | when Turnstile is enabled | `secret put` | Verifies Turnstile responses                                 |
+| `IP_HASH_SECRET`       | optional                  | `secret put` | Stores a salted IP hash instead of the raw IP                |
+| `RESEND_API_KEY`       | optional                  | `secret put` | Enables Resend notification emails                           |
+| `NOTIFICATION_TO`      | optional                  | `[vars]`     | Destination for accepted submission notifications            |
+| `EMAIL_FROM`           | optional                  | `[vars]`     | Verified sender used by Resend                               |
+
+See `.dev.vars.example` for local values.
+
+## Form config
+
+Forms are configured through `FORM_CONFIG`:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "emailFields": ["email"],
+    "dateFields": ["eventDate"],
+    "maxLinks": 3,
+    "notification": {
+      "subject": "New contact form submission",
+      "replyToField": "email"
+    }
+  }
+}
+```
+
+Use `requiredFields` only for fields your form must collect:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "requiredFields": ["email", "message"]
+  }
+}
+```
+
+`emailFields` must look like valid email addresses. `dateFields` must use `YYYY-MM-DD` and be today or later.
+
+## Deploy
+
+```bash
+npm run deploy
+```
+
+After deploy, check `GET /` and wire your embedded form to `POST /submit/:formId`. See `examples/contact.html`.
+
+## API
+
+| Method    | Path              | Auth             | Description                                        |
+| --------- | ----------------- | ---------------- | -------------------------------------------------- |
+| `GET`     | `/`               | -                | Liveness check                                     |
+| `OPTIONS` | `/submit/:formId` | origin allowlist | CORS preflight                                     |
+| `POST`    | `/submit/:formId` | origin allowlist | Validate, spam-check, store, and optionally notify |
+| `POST`    | `/:formId`        | origin allowlist | Short form of `/submit/:formId`                    |
+
+## Submission storage
+
+Accepted submissions are stored in the `submissions` D1 table. Spam submissions are rejected before the database insert.
+
+IP addresses are not stored directly; when `IP_HASH_SECRET` is configured, the Worker stores only a salted hash.
+
+Useful D1 commands:
+
+```bash
+npx wrangler d1 execute form_submissions --local --command "SELECT id, form_id, submitted_at, payload FROM submissions ORDER BY submitted_at DESC LIMIT 20"
+npx wrangler d1 execute form_submissions --remote --command "DELETE FROM submissions WHERE id = 'SUBMISSION_ID'"
+npx wrangler d1 export form_submissions --remote --output submissions.sql
+```
+
+## Testing
+
+```bash
+npm test
+```
+
+For local browser testing, serve the example form:
+
+```bash
+python3 -m http.server 8000 --directory examples
+```
+
