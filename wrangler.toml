@@ -1,0 +1,19 @@
+name = "form"
+main = "src/index.ts"
+compatibility_date = "2026-05-18"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "form_submissions"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[vars]
+FORM_CONFIG = '''
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "requiredFields": ["email", "message"],
+    "maxLinks": 3
+  }
+}
+'''

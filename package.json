@@ -1,0 +1,21 @@
+{
+  "name": "form",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run && npm run typecheck",
+    "typecheck": "tsc --noEmit",
+    "email:test": "node scripts/send-test-email.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply form_submissions --local",
+    "db:migrate": "wrangler d1 migrations apply form_submissions --remote"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "typescript": "latest",
+    "vitest": "^4.1.6",
+    "wrangler": "latest"
+  }
+}
