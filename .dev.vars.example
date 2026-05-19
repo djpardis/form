@@ -1,7 +1,9 @@
 FORM_CONFIG='{
   "contact": {
     "allowedOrigins": ["http://localhost:8787", "http://localhost:8000"],
-    "requiredFields": ["email", "message"],
+    "requiredFields": ["email", "eventDate", "message"],
+    "emailFields": ["email"],
+    "dateFields": ["eventDate"],
     "maxLinks": 3,
     "turnstile": false,
     "notification": {

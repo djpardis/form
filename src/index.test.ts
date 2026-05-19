@@ -33,6 +33,8 @@ function baseConfig() {
     contact: {
       allowedOrigins: ["https://site.test"],
       requiredFields: ["email", "message"],
+      emailFields: ["email"],
+      dateFields: [] as string[],
       maxLinks: 2,
       turnstile: false
     }
@@ -51,12 +53,26 @@ function post(body: Record<string, unknown>, headers: HeadersInit = {}) {
   });
 }
 
+function testEmail() {
+  return ["sender", "example.test"].join("@");
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterday() {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
 describe("form Worker", () => {
   it("stores accepted submissions and returns JSON for embedded forms", async () => {
     const { db, env } = makeEnv();
 
     const response = await worker.fetch(
-      post({ email: "TEST_SENDER_ADDRESS", message: "Hello", website: "" }),
+      post({ email: testEmail(), message: "Hello", website: "" }),
       env
     );
 
@@ -73,7 +89,7 @@ describe("form Worker", () => {
 
     const response = await worker.fetch(
       post({
-        email: "TEST_SENDER_ADDRESS",
+        email: testEmail(),
         message: "Hello",
         website: "filled"
       }),
@@ -90,7 +106,7 @@ describe("form Worker", () => {
 
     const response = await worker.fetch(
       post({
-        email: "TEST_SENDER_ADDRESS",
+        email: testEmail(),
         message: "https://one.test https://two.test https://three.test",
         website: ""
       }),
@@ -106,7 +122,7 @@ describe("form Worker", () => {
 
     const response = await worker.fetch(
       post(
-        { email: "TEST_SENDER_ADDRESS", message: "Hello", website: "" },
+        { email: testEmail(), message: "Hello", website: "" },
         { origin: "https://other.test" }
       ),
       env
@@ -127,7 +143,7 @@ describe("form Worker", () => {
     } satisfies WorkerEnv;
 
     const response = await worker.fetch(
-      post({ email: "TEST_SENDER_ADDRESS", message: "Hello", website: "" }),
+      post({ email: testEmail(), message: "Hello", website: "" }),
       env
     );
 
@@ -135,6 +151,93 @@ describe("form Worker", () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Form "contact" allowedOrigins must be a non-empty array'
     });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("rejects invalid email field values", async () => {
+    const { db, env } = makeEnv();
+
+    const response = await worker.fetch(
+      post({ email: "not-an-email", message: "Hello", website: "" }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email field must be valid: email"
+    });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("stores submissions with date fields set to today or later", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        requiredFields: ["email", "message", "eventDate"],
+        dateFields: ["eventDate"]
+      }
+    });
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        eventDate: today(),
+        website: ""
+      }),
+      env
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+  });
+
+  it("rejects date fields in the past", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        requiredFields: ["email", "message", "eventDate"],
+        dateFields: ["eventDate"]
+      }
+    });
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        eventDate: yesterday(),
+        website: ""
+      }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Date field must be today or later: eventDate"
+    });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("rejects invalid date field values", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        requiredFields: ["email", "message", "eventDate"],
+        dateFields: ["eventDate"]
+      }
+    });
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        eventDate: "2026-02-31",
+        website: ""
+      }),
+      env
+    );
+
+    expect(response.status).toBe(400);
     expect(db.inserts).toHaveLength(0);
   });
 
@@ -148,7 +251,7 @@ describe("form Worker", () => {
     );
 
     const response = await worker.fetch(
-      post({ email: "TEST_SENDER_ADDRESS", message: "Hello", website: "" }),
+      post({ email: testEmail(), message: "Hello", website: "" }),
       {
         ...env,
         RESEND_API_KEY: "re_test_key",

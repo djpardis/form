@@ -48,7 +48,8 @@ Forms are configured through the `FORM_CONFIG` variable.
 {
   "contact": {
     "allowedOrigins": ["https://example.com"],
-    "requiredFields": ["email", "message"],
+    "emailFields": ["email"],
+    "dateFields": ["eventDate"],
     "maxLinks": 3,
     "notification": {
       "subject": "New contact form submission",
@@ -60,6 +61,23 @@ Forms are configured through the `FORM_CONFIG` variable.
 
 The Worker validates this config at runtime and returns a clear error when a
 form is missing required settings or uses the wrong value type.
+
+Use `requiredFields` only for fields your form must collect:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "requiredFields": ["email", "message"]
+  }
+}
+```
+
+Fields listed in `emailFields` must look like valid email addresses. Add the
+same field to `requiredFields` when the email address must be present.
+
+Fields listed in `dateFields` must use the `YYYY-MM-DD` format and must be today
+or later. Add the same field to `requiredFields` when the date must be present.
 
 The form id in the config maps to the endpoint path:
 

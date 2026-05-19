@@ -5,13 +5,15 @@
 1. The embedded form submits with `fetch()`.
 2. The Worker checks that the form id exists.
 3. The request origin or referer must match the form's `allowedOrigins`.
-4. Required fields must be present.
-5. Honeypot fields must be empty.
-6. Link count must be below `maxLinks`.
-7. Turnstile must verify successfully.
-8. The accepted submission is inserted into D1.
-9. If notification vars are configured, an email is sent after storage.
-10. The Worker returns JSON, and the embedded form shows an inline success state.
+4. Fields configured as required must be present.
+5. Fields configured as emails must look valid.
+6. Fields configured as dates must be today or later.
+7. Honeypot fields must be empty.
+8. Link count must be below `maxLinks`.
+9. Turnstile must verify successfully.
+10. The accepted submission is inserted into D1.
+11. If notification vars are configured, an email is sent after storage.
+12. The Worker returns JSON, and the embedded form shows an inline success state.
 
 Rejected spam receives the same generic success response, but is not stored.
 

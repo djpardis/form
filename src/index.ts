@@ -11,6 +11,8 @@ type Env = {
 type FormConfig = {
   allowedOrigins: string[];
   requiredFields?: string[];
+  emailFields?: string[];
+  dateFields?: string[];
   maxLinks?: number;
   honeypotFields?: string[];
   turnstile?: boolean;
@@ -175,6 +177,8 @@ function validateFormConfig(
   return {
     allowedOrigins: requiredStringArray(config, formId, "allowedOrigins"),
     requiredFields: optionalStringArray(config, formId, "requiredFields"),
+    emailFields: optionalStringArray(config, formId, "emailFields"),
+    dateFields: optionalStringArray(config, formId, "dateFields"),
     maxLinks: optionalNonNegativeInteger(config, formId, "maxLinks"),
     honeypotFields: optionalStringArray(config, formId, "honeypotFields"),
     turnstile: optionalBoolean(config, formId, "turnstile"),
@@ -353,7 +357,52 @@ function validateSubmission(
     }
   }
 
+  for (const field of config.dateFields ?? []) {
+    const value = submission.fields[field];
+
+    if (value && !isTodayOrFutureDate(value)) {
+      return {
+        ok: false,
+        reason: `Date field must be today or later: ${field}`
+      };
+    }
+  }
+
+  for (const field of config.emailFields ?? []) {
+    const value = submission.fields[field];
+
+    if (value && !isValidEmail(value)) {
+      return {
+        ok: false,
+        reason: `Email field must be valid: ${field}`
+      };
+    }
+  }
+
   return { ok: true };
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isTodayOrFutureDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isValidCalendarDate =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+
+  if (!isValidCalendarDate) {
+    return false;
+  }
+
+  return value >= new Date().toISOString().slice(0, 10);
 }
 
 async function checkSpam(

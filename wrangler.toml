@@ -13,6 +13,7 @@ FORM_CONFIG = '''
   "contact": {
     "allowedOrigins": ["https://example.com"],
     "requiredFields": ["email", "message"],
+    "emailFields": ["email"],
     "maxLinks": 3
   }
 }
