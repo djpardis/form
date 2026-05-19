@@ -1,5 +1,7 @@
 # form
 
+![Museum gallery with framed paintings](docs/assets/hero.png)
+
 A lightweight form backend for static sites, landing pages, and small web apps.
 
 It accepts embedded form submissions, filters likely spam before any database
