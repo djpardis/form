@@ -1,6 +1,8 @@
 # form
 
-<img src="docs/assets/hero.png" alt="Vintage gallery interior with art and furniture" width="640">
+<p align="center">
+  <img src="docs/assets/hero.png" alt="Vintage gallery interior with art and furniture" width="720">
+</p>
 
 A lightweight backend for embedded forms that need spam filtering, storage, and notifications.
 
@@ -13,8 +15,8 @@ validation, honeypots, Turnstile, and generic success responses for spam.
 Submissions are designed for embedded forms. The Worker returns JSON, so the
 page can stay in place and render inline success or error states.
 
-[CI](https://github.com/djpardis/form/actions/workflows/ci.yml)
-[License: MIT](LICENSE)
+[![CI](https://github.com/djpardis/form/actions/workflows/ci.yml/badge.svg)](https://github.com/djpardis/form/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Requirements
 
