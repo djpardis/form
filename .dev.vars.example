@@ -1,0 +1,17 @@
+FORM_CONFIG='{
+  "contact": {
+    "allowedOrigins": ["http://localhost:8787", "http://localhost:8000"],
+    "requiredFields": ["email", "message"],
+    "maxLinks": 3,
+    "turnstile": false,
+    "notification": {
+      "subject": "New contact form submission",
+      "replyToField": "email"
+    }
+  }
+}'
+
+IP_HASH_SECRET="replace-with-random-local-string"
+RESEND_API_KEY="re_replace_with_resend_api_key"
+NOTIFICATION_TO="PRIVATE_DESTINATION_ADDRESS"
+EMAIL_FROM="PRIVATE_VERIFIED_SENDER"
