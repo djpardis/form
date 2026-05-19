@@ -1,7 +1,6 @@
 # form
 
-A lightweight open source form backend for static sites, landing pages, and
-small web apps.
+A lightweight form backend for static sites, landing pages, and small web apps.
 
 It accepts embedded form submissions, filters likely spam before any database
 write, stores accepted submissions in Cloudflare D1, and can send notification
