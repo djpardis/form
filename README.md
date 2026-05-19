@@ -1,6 +1,6 @@
 # form
 
-![Museum gallery with framed paintings](docs/assets/hero.png)
+![Vintage gallery interior with art and furniture](docs/assets/hero.png)
 
 A lightweight backend for embedded forms that need spam filtering, storage, and
 notifications.
