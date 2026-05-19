@@ -1,91 +1,61 @@
 # form
 
-![Vintage gallery interior with art and furniture](docs/assets/hero.png)
+<img src="docs/assets/hero.png" alt="Vintage gallery interior with art and furniture" width="640">
 
-A lightweight backend for embedded forms that need spam filtering, storage, and
-notifications.
+A lightweight backend for embedded forms that need spam filtering, storage, and notifications.
 
-It accepts embedded form submissions, filters likely spam before any database
-write, stores accepted submissions in Cloudflare D1, and can send notification
-emails through Resend.
+`form` runs on [Cloudflare Workers](https://developers.cloudflare.com/workers/),
+stores accepted submissions in [D1](https://developers.cloudflare.com/d1/), and
+can send notifications through [Resend](https://resend.com/). It supports
+origin allowlists, required fields, email validation, current-or-future date
+validation, honeypots, Turnstile, and generic success responses for spam.
 
-Forms stay on the same page after submit and render inline success or error
-states.
+Submissions are designed for embedded forms. The Worker returns JSON, so the
+page can stay in place and render inline success or error states.
 
-## Why form
+[CI](https://github.com/djpardis/form/actions/workflows/ci.yml)
+[License: MIT](LICENSE)
 
-Hosted form services are convenient, but they often force a redirect, charge for
-simple usage, or keep submission data outside your infrastructure. form is for
-small teams and personal sites that want embedded forms, spam filtering, and
-submission storage on Cloudflare.
+## Requirements
 
-## Stack
+- **Node** >= 20
+- **Cloudflare** account - install [Wrangler](https://developers.cloudflare.com/workers/wrangler/) and run `npx wrangler login`
+- **Resend** account - only needed for email notifications
 
-- Cloudflare Workers for the public endpoint
-- Cloudflare D1 for accepted submissions
-- Cloudflare Turnstile for bot filtering
-- Resend for optional email notifications
-- Honeypot fields and link-count filtering before storage
+## Setup
 
-This can run on Cloudflare's free tiers for small sites.
-
-## Features
-
-- Embedded same-page form submissions
-- Form endpoints keyed by form id
-- Origin allowlisting per form
-- Configurable required-field validation
-- Configurable email fields that must look valid
-- Configurable date fields that must be today or later
-- Honeypot and link-count spam filtering
-- Validated runtime configuration
-- Turnstile verification before database writes
-- D1 storage for accepted submissions
-- Optional Resend email notifications after storage
-- Generic success responses for spam, without storing spam submissions
-
-## Quick start
-
-Install dependencies and start the Worker:
-
-```sh
+```bash
 npm install
-cp .dev.vars.example .dev.vars
-npm run db:migrate:local
-npm run dev
+npx wrangler d1 create form_submissions
+npm run db:migrate
 ```
 
-In another terminal, serve the example form:
+Local development: `cp .dev.vars.example .dev.vars && npm run db:migrate:local && npm run dev`
 
-```sh
-python3 -m http.server 8000 --directory examples
-```
-
-Open `http://localhost:8000/contact.html`.
+Full setup guide: [docs/setup.md](docs/setup.md).
 
 ## Example
 
-See `examples/contact.html` for a complete embedded form with same-page success
-and error states.
+See `examples/contact.html` for an embedded form with same-page success and
+error states.
 
-## Testing
+## Scripts
 
-```sh
-npm test
+```bash
+npm run dev              # start local Worker
+npm test                 # run behavior tests and typecheck
+npm run db:migrate:local # apply local D1 migrations
+npm run db:migrate       # apply remote D1 migrations
+npm run deploy           # deploy Worker
 ```
 
-The test suite covers accepted submissions, spam rejection, origin checks,
-configuration validation, and notification delivery behavior.
+## Project docs
 
-## Documentation
+- Setup: [docs/setup.md](docs/setup.md)
+- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Testing: [docs/testing.md](docs/testing.md)
+- Operations: [docs/operations.md](docs/operations.md)
+- Submissions: [docs/submissions.md](docs/submissions.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- License: [MIT](LICENSE)
 
-- [Setup](docs/setup.md)
-- [Testing](docs/testing.md)
-- [Operations](docs/operations.md)
-- [Submissions](docs/submissions.md)
-- [Contributing](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
-
-## License
-
-This project is released under the MIT License. See `LICENSE`.
