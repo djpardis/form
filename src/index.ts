@@ -6,6 +6,7 @@ type Env = {
   RESEND_API_KEY?: string;
   NOTIFICATION_TO?: string;
   EMAIL_FROM?: string;
+  NOTIFICATION_SUBJECT?: string;
 };
 
 type FormConfig = {
@@ -497,7 +498,10 @@ async function sendNotificationEmail(
 
   const replyToField = config.notification?.replyToField ?? "email";
   const replyTo = submission.fields[replyToField];
-  const subject = config.notification?.subject ?? `New ${formId} submission`;
+  const subject =
+    env.NOTIFICATION_SUBJECT ||
+    config.notification?.subject ||
+    `New ${formId} submission`;
   const text = formatEmailBody(formId, submissionId, submittedAt, submission.fields);
 
   try {
