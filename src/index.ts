@@ -557,11 +557,15 @@ function checkOrigin(
   const allowed = new Set(config.allowedOrigins);
   const candidate = origin ?? new URL(referer as string).origin;
 
-  if (!allowed.has(candidate)) {
-    return { ok: false, reason: "Origin not allowed" };
+  if (allowed.has(candidate)) {
+    return { ok: true };
   }
 
-  return { ok: true };
+  if (allowed.has("localhost") && /^http:\/\/localhost(:\d+)?$/.test(candidate)) {
+    return { ok: true };
+  }
+
+  return { ok: false, reason: "Origin not allowed" };
 }
 
 async function hashIp(request: Request, env: Env): Promise<string | null> {
@@ -608,7 +612,7 @@ function corsResponse(request: Request, env: Env): Response {
       Object.values(forms).flatMap((form) => form.allowedOrigins)
     );
 
-    if (allowedOrigins.has(origin)) {
+    if (isOriginAllowed(origin, [...allowedOrigins])) {
       headers.set("access-control-allow-origin", origin);
     }
   }
@@ -616,11 +620,17 @@ function corsResponse(request: Request, env: Env): Response {
   return new Response(null, { status: 204, headers });
 }
 
+function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  if (allowedOrigins.includes("localhost") && /^http:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  return false;
+}
+
 function corsHeaders(request: Request, config: FormConfig): Headers {
   const headers = new Headers();
   const origin = request.headers.get("origin");
 
-  if (origin && config.allowedOrigins.includes(origin)) {
+  if (origin && isOriginAllowed(origin, config.allowedOrigins)) {
     headers.set("access-control-allow-origin", origin);
   }
 
