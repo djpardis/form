@@ -4,7 +4,7 @@
 
 ```bash
 npm install
-npx wrangler d1 create form_submissions
+npx wrangler d1 create form_submissions   # copy the returned uuid into wrangler.toml → database_id
 npm run db:migrate
 ```
 
@@ -90,6 +90,28 @@ npm run deploy
 ```
 
 After deploy, check `GET /` and wire your embedded form to `POST /submit/:formId`. See `examples/contact.html`.
+
+The Worker is available at `https://<name>.<subdomain>.workers.dev` by default. To also serve it on your own domain, add a route to `wrangler.toml` before deploying:
+
+```toml
+[[routes]]
+pattern = "forms.example.com"
+custom_domain = true
+```
+
+Wrangler creates the DNS record automatically if `example.com` is a zone in your Cloudflare account.
+
+## Local origins
+
+During local development the Worker's origin check blocks `localhost` because it is not in `allowedOrigins`. Add the string `"localhost"` to `allowedOrigins` in `.dev.vars` to allow any `http://localhost:*` port without listing each one:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com", "localhost"]
+  }
+}
+```
 
 ## API
 
