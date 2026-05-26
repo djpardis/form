@@ -62,7 +62,16 @@ Use `requiredFields` only for fields your form must collect:
 }
 ```
 
-`emailFields` must look like valid email addresses. `dateFields` must use `YYYY-MM-DD` and be today or later.
+`emailFields` must look like valid email addresses. `dateFields` must use `YYYY-MM-DD` and be today or later. `minLength` sets a minimum character count per field:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "minLength": { "message": 20 }
+  }
+}
+```
 
 ## Deploy
 
