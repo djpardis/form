@@ -13,6 +13,7 @@ type FormConfig = {
   requiredFields?: string[];
   emailFields?: string[];
   dateFields?: string[];
+  minLength?: Record<string, number>;
   maxLinks?: number;
   honeypotFields?: string[];
   turnstile?: boolean;
@@ -36,7 +37,8 @@ const DEFAULT_HONEYPOT_FIELDS = ["website", "url", "company"];
 const RESERVED_FIELDS = new Set([
   "cf-turnstile-response",
   "turnstileToken",
-  "started_at"
+  "started_at",
+  "submit"
 ]);
 
 class ConfigError extends Error {
@@ -179,6 +181,7 @@ function validateFormConfig(
     requiredFields: optionalStringArray(config, formId, "requiredFields"),
     emailFields: optionalStringArray(config, formId, "emailFields"),
     dateFields: optionalStringArray(config, formId, "dateFields"),
+    minLength: optionalStringToIntMap(config, formId, "minLength"),
     maxLinks: optionalNonNegativeInteger(config, formId, "maxLinks"),
     honeypotFields: optionalStringArray(config, formId, "honeypotFields"),
     turnstile: optionalBoolean(config, formId, "turnstile"),
@@ -296,6 +299,33 @@ function optionalString(
   return value;
 }
 
+function optionalStringToIntMap(
+  config: Record<string, unknown>,
+  formId: string,
+  key: string
+): Record<string, number> | undefined {
+  const value = config[key];
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    throw new ConfigError(`Form "${formId}" ${key} must be an object`);
+  }
+
+  const result: Record<string, number> = {};
+
+  for (const [field, min] of Object.entries(value)) {
+    if (typeof min !== "number" || !Number.isInteger(min) || min < 1) {
+      throw new ConfigError(`Form "${formId}" ${key}.${field} must be a positive integer`);
+    }
+    result[field] = min;
+  }
+
+  return result;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -375,6 +405,17 @@ function validateSubmission(
       return {
         ok: false,
         reason: `Email field must be valid: ${field}`
+      };
+    }
+  }
+
+  for (const [field, min] of Object.entries(config.minLength ?? {})) {
+    const value = submission.fields[field] ?? "";
+
+    if (value.length < min) {
+      return {
+        ok: false,
+        reason: `Field too short: ${field} (minimum ${min} characters)`
       };
     }
   }
@@ -548,20 +589,12 @@ function checkOrigin(
   config: FormConfig
 ): { ok: true } | { ok: false; reason: string } {
   const origin = request.headers.get("origin");
-  const referer = request.headers.get("referer");
 
-  if (!origin && !referer) {
+  if (!origin) {
     return { ok: false, reason: "Missing origin" };
   }
 
-  const allowed = new Set(config.allowedOrigins);
-  const candidate = origin ?? new URL(referer as string).origin;
-
-  if (allowed.has(candidate)) {
-    return { ok: true };
-  }
-
-  if (allowed.has("localhost") && /^http:\/\/localhost(:\d+)?$/.test(candidate)) {
+  if (isOriginAllowed(origin, config.allowedOrigins)) {
     return { ok: true };
   }
 
