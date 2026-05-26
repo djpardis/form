@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./index";
 
 type WorkerEnv = Parameters<typeof worker.fetch>[1];
@@ -68,6 +68,10 @@ function yesterday() {
 }
 
 describe("form Worker", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("stores accepted submissions and returns JSON for embedded forms", async () => {
     const { db, env } = makeEnv();
 
@@ -263,5 +267,34 @@ describe("form Worker", () => {
     expect(response.status).toBe(202);
     expect(db.inserts).toHaveLength(1);
     expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("uses a worker-level notification subject when configured", async () => {
+    const { db, env } = makeEnv();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    const response = await worker.fetch(
+      post({ email: testEmail(), message: "Hello", website: "" }),
+      {
+        ...env,
+        RESEND_API_KEY: "re_test_key",
+        NOTIFICATION_TO: "PRIVATE_DESTINATION_ADDRESS",
+        EMAIL_FROM: "PRIVATE_VERIFIED_SENDER",
+        NOTIFICATION_SUBJECT: "Custom notification subject"
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      subject: "Custom notification subject"
+    });
   });
 });
