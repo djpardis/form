@@ -63,7 +63,16 @@ Use `requiredFields` only for fields your form must collect:
 }
 ```
 
-`emailFields` must look like valid email addresses. `dateFields` must use `YYYY-MM-DD` and be today or later. The backend rejects invalid values, but browsers only block past dates in the date picker when the embedded page sets `min` on the `<input type="date">`. See `examples/contact.html` for a copyable client-side `min` example.
+`emailFields` must look like valid email addresses. `dateFields` must use `YYYY-MM-DD` and be today or later. The backend rejects invalid values, but browsers only block past dates in the date picker when the embedded page sets `min` on the `<input type="date">`. See `examples/contact.html` for a copyable client-side `min` example. `minLength` sets a minimum character count per field:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "minLength": { "message": 20 }
+  }
+}
+```
 
 ## Embedded form
 
