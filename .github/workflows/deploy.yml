@@ -1,0 +1,80 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment containing deployment config
+        required: false
+        default: production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: vars.WORKER_NAME != ''
+    environment: ${{ inputs.environment || 'production' }}
+    env:
+      WRANGLER_CONFIG: wrangler.generated.toml
+      WORKER_NAME: ${{ vars.WORKER_NAME }}
+      WORKER_CUSTOM_DOMAIN: ${{ vars.WORKER_CUSTOM_DOMAIN }}
+      WORKERS_DEV: ${{ vars.WORKERS_DEV }}
+      PREVIEW_URLS: ${{ vars.PREVIEW_URLS }}
+      D1_DATABASE_NAME: ${{ vars.D1_DATABASE_NAME }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      FORM_CONFIG: ${{ vars.FORM_CONFIG }}
+      NOTIFICATION_TO: ${{ vars.NOTIFICATION_TO }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      NOTIFICATION_SUBJECT: ${{ vars.NOTIFICATION_SUBJECT }}
+      HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Generate Wrangler config
+        run: node scripts/write-wrangler-config.mjs
+      - name: Apply D1 migrations
+        run: npx wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote --config "$WRANGLER_CONFIG"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy Worker
+        run: npx wrangler deploy --config "$WRANGLER_CONFIG"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Sync Worker secrets
+        run: |
+          set_secret() {
+            name="$1"
+            value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name" --name "$WORKER_NAME"
+            fi
+          }
+
+          set_secret TURNSTILE_SECRET_KEY "$TURNSTILE_SECRET_KEY"
+          set_secret IP_HASH_SECRET "$IP_HASH_SECRET"
+          set_secret RESEND_API_KEY "$RESEND_API_KEY"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          IP_HASH_SECRET: ${{ secrets.IP_HASH_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      - name: Health check
+        if: ${{ env.HEALTHCHECK_URL != '' }}
+        run: curl -fsS "$HEALTHCHECK_URL"

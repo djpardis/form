@@ -29,6 +29,13 @@ npm run db:migrate
 
 Local development: `cp .dev.vars.example .dev.vars && npm run db:migrate:local && npm run dev`.
 
+## Deployment model
+
+The checked-in `wrangler.toml` is local/default config. Merges to `main` auto-deploy when `WORKER_NAME` is set in the `production` GitHub environment; the job is skipped otherwise. Manual runs can target any environment.
+
+Use GitHub environments for deployment-specific Worker names, D1 IDs, domains,
+form config, notification senders, and secrets.
+
 Full setup, configuration, API, testing, and submission-management details are in [SETUP.md](SETUP.md). The local embedded form example is [examples/contact.html](examples/contact.html).
 
 ## Project docs

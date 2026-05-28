@@ -4,7 +4,7 @@
 
 ```bash
 npm install
-npx wrangler d1 create form_submissions   # copy the returned uuid into wrangler.toml → database_id
+npx wrangler d1 create form_submissions
 npm run db:migrate
 ```
 
@@ -94,18 +94,51 @@ Use `NOTIFICATION_SUBJECT` when every form on the Worker should share the same e
 
 ## Deploy
 
+Production deploys run through `.github/workflows/deploy.yml`. Merges to `main`
+auto-deploy when `WORKER_NAME` is set in the `production` GitHub environment;
+the job is skipped otherwise. Manual runs can target any environment.
+
+Provision the D1 database, then populate a GitHub environment with the variables
+and secrets below. The workflow generates `wrangler.generated.toml`, applies D1
+migrations, deploys the Worker, syncs secrets, and optionally checks
+`HEALTHCHECK_URL`.
+
+Required environment variables:
+
+- `WORKER_NAME`
+- `D1_DATABASE_NAME`
+- `D1_DATABASE_ID`
+- `FORM_CONFIG`
+
+Common optional environment variables:
+
+- `WORKER_CUSTOM_DOMAIN`
+- `WORKERS_DEV`
+- `PREVIEW_URLS`
+- `NOTIFICATION_TO`
+- `EMAIL_FROM`
+- `NOTIFICATION_SUBJECT`
+- `HEALTHCHECK_URL`
+
+Required repository or environment secrets:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Optional secrets:
+
+- `TURNSTILE_SECRET_KEY`
+- `IP_HASH_SECRET`
+- `RESEND_API_KEY`
+
+After deploy, wire your embedded form to `POST /submit/:formId`. See `examples/contact.html`.
+
+The Worker is available at `https://<name>.<subdomain>.workers.dev` when
+`workers_dev` is enabled. For a custom domain in the GitHub deployment flow, set
+`WORKER_CUSTOM_DOMAIN`:
+
 ```bash
-npm run deploy
-```
-
-After deploy, check `GET /` and wire your embedded form to `POST /submit/:formId`. See `examples/contact.html`.
-
-The Worker is available at `https://<name>.<subdomain>.workers.dev` by default. To also serve it on your own domain, add a route to `wrangler.toml` before deploying:
-
-```toml
-[[routes]]
-pattern = "forms.example.com"
-custom_domain = true
+WORKER_CUSTOM_DOMAIN=forms.example.com
 ```
 
 Wrangler creates the DNS record automatically if `example.com` is a zone in your Cloudflare account.
