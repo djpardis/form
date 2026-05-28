@@ -8,20 +8,21 @@ on:
     inputs:
       environment:
         description: GitHub environment containing deployment config
-        required: true
+        required: false
         default: production
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.event.inputs.environment || 'production' }}
+  group: deploy-${{ inputs.environment || 'production' }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'production' }}
+    if: vars.WORKER_NAME != ''
+    environment: ${{ inputs.environment || 'production' }}
     env:
       WRANGLER_CONFIG: wrangler.generated.toml
       WORKER_NAME: ${{ vars.WORKER_NAME }}
