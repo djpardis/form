@@ -36,7 +36,10 @@ function baseConfig() {
       emailFields: ["email"],
       dateFields: [] as string[],
       maxLinks: 2,
-      turnstile: false
+      turnstile: false,
+      notification: undefined as
+        | { enabled?: boolean; subject?: string; replyToField?: string }
+        | undefined
     }
   };
 }
@@ -70,6 +73,7 @@ function yesterday() {
 describe("form Worker", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("stores accepted submissions and returns JSON for embedded forms", async () => {
@@ -267,9 +271,51 @@ describe("form Worker", () => {
     expect(response.status).toBe(202);
     expect(db.inserts).toHaveLength(1);
     expect(fetchSpy).toHaveBeenCalledOnce();
+    const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(request.body));
+    expect(body.text).toContain("Website:\n");
+    expect(body.text).not.toContain("(blank)");
+    expect(body.html).toBeUndefined();
   });
 
-  it("uses a worker-level notification subject when configured", async () => {
+  it("uses a form-specific notification subject", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        notification: {
+          subject: "Form-specific notification subject"
+        }
+      }
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    const response = await worker.fetch(
+      post({ email: testEmail(), message: "Hello", website: "" }),
+      {
+        ...env,
+        RESEND_API_KEY: "re_test_key",
+        NOTIFICATION_TO: "PRIVATE_DESTINATION_ADDRESS",
+        EMAIL_FROM: "PRIVATE_VERIFIED_SENDER"
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      subject: "Form-specific notification subject"
+    });
+  });
+
+  it("formats notification timestamps in a configured time zone", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-01T19:11:49.660Z"));
     const { db, env } = makeEnv();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("{}", {
@@ -285,7 +331,7 @@ describe("form Worker", () => {
         RESEND_API_KEY: "re_test_key",
         NOTIFICATION_TO: "PRIVATE_DESTINATION_ADDRESS",
         EMAIL_FROM: "PRIVATE_VERIFIED_SENDER",
-        NOTIFICATION_SUBJECT: "Custom notification subject"
+        NOTIFICATION_TIME_ZONE: "America/Los_Angeles"
       }
     );
 
@@ -293,8 +339,7 @@ describe("form Worker", () => {
     expect(db.inserts).toHaveLength(1);
     expect(fetchSpy).toHaveBeenCalledOnce();
     const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toMatchObject({
-      subject: "Custom notification subject"
-    });
+    const body = JSON.parse(String(request.body));
+    expect(body.text).toContain("Submitted at: Jun 1, 2026, 12:11 PM PDT");
   });
 });
