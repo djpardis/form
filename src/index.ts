@@ -6,7 +6,7 @@ type Env = {
   RESEND_API_KEY?: string;
   NOTIFICATION_TO?: string;
   EMAIL_FROM?: string;
-  NOTIFICATION_SUBJECT?: string;
+  NOTIFICATION_TIME_ZONE?: string;
 };
 
 type FormConfig = {
@@ -36,6 +36,7 @@ type ParsedSubmission = {
 
 const DEFAULT_HONEYPOT_FIELDS = ["website", "url", "company"];
 const RESERVED_FIELDS = new Set([
+  "_subject",
   "cf-turnstile-response",
   "turnstileToken",
   "started_at",
@@ -205,9 +206,9 @@ function optionalNotification(
   }
 
   return {
-    enabled: optionalBoolean(value, formId, "notification.enabled"),
-    subject: optionalString(value, formId, "notification.subject"),
-    replyToField: optionalString(value, formId, "notification.replyToField")
+    enabled: optionalBoolean(value, formId, "enabled"),
+    subject: optionalString(value, formId, "subject"),
+    replyToField: optionalString(value, formId, "replyToField")
   };
 }
 
@@ -539,11 +540,14 @@ async function sendNotificationEmail(
 
   const replyToField = config.notification?.replyToField ?? "email";
   const replyTo = submission.fields[replyToField];
-  const subject =
-    env.NOTIFICATION_SUBJECT ||
-    config.notification?.subject ||
-    `New ${formId} submission`;
-  const text = formatEmailBody(formId, submissionId, submittedAt, submission.fields);
+  const subject = config.notification?.subject || `New ${formId} submission`;
+  const text = formatEmailBody(
+    formId,
+    submissionId,
+    submittedAt,
+    submission.fields,
+    env.NOTIFICATION_TIME_ZONE
+  );
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -573,19 +577,47 @@ function formatEmailBody(
   formId: string,
   submissionId: string,
   submittedAt: string,
-  fields: Record<string, string>
+  fields: Record<string, string>,
+  timeZone?: string
 ): string {
   const fieldLines = Object.entries(fields)
-    .map(([key, value]) => `${key}:\n${value || "(blank)"}`)
+    .map(([key, value]) => `${formatLabel(key)}:\n${value}`)
     .join("\n\n");
 
   return [
-    `Form: ${formId}`,
+    `Form: ${formatLabel(formId)}`,
     `Submission ID: ${submissionId}`,
-    `Submitted at: ${submittedAt}`,
+    `Submitted at: ${formatSubmittedAt(submittedAt, timeZone)}`,
     "",
     fieldLines
   ].join("\n");
+}
+
+function formatLabel(value: string): string {
+  const normalized = value.replace(/[-_]+/g, " ").trim();
+  if (!normalized) return value;
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatSubmittedAt(submittedAt: string, timeZone?: string): string {
+  if (!timeZone) {
+    return submittedAt;
+  }
+
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short"
+    }).format(new Date(submittedAt));
+  } catch {
+    return submittedAt;
+  }
 }
 
 function checkOrigin(

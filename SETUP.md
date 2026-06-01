@@ -29,7 +29,7 @@ Bind each `env.<NAME>` from Cloudflare Secrets or Variables. Runtime behavior is
 | `RESEND_API_KEY`       | optional                  | `secret put` | Enables Resend notification emails                           |
 | `NOTIFICATION_TO`      | optional                  | `[vars]`     | Destination for accepted submission notifications            |
 | `EMAIL_FROM`           | optional                  | `[vars]`     | Verified sender used by Resend                               |
-| `NOTIFICATION_SUBJECT` | optional                  | `[vars]`     | Default subject for notification emails                      |
+| `NOTIFICATION_TIME_ZONE` | optional                | `[vars]`     | Time zone used in notification email timestamps              |
 
 See `.dev.vars.example` for local values.
 
@@ -90,7 +90,9 @@ The form id in the path, `contact` above, must match a key in `FORM_CONFIG`. The
 
 Set `RESEND_API_KEY`, `NOTIFICATION_TO`, and `EMAIL_FROM` to enable accepted-submission email notifications. `EMAIL_FROM` must use a sender verified in Resend.
 
-Use `NOTIFICATION_SUBJECT` when every form on the Worker should share the same email subject. Use `notification.subject` inside a form's `FORM_CONFIG` when each form needs its own subject.
+Set `notification.subject` inside each form's `FORM_CONFIG` when you need a custom email subject.
+
+Set `NOTIFICATION_TIME_ZONE` to an IANA time zone such as `America/Los_Angeles` to render notification timestamps in local time. Without it, notifications use the stored UTC timestamp.
 
 ## Deploy
 
@@ -117,7 +119,7 @@ Common optional environment variables:
 - `PREVIEW_URLS`
 - `NOTIFICATION_TO`
 - `EMAIL_FROM`
-- `NOTIFICATION_SUBJECT`
+- `NOTIFICATION_TIME_ZONE`
 - `HEALTHCHECK_URL`
 
 Required repository or environment secrets:
