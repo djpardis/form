@@ -37,6 +37,8 @@ function baseConfig() {
       dateFields: [] as string[],
       maxLinks: 2,
       turnstile: false,
+      requireBusinessEmail: undefined as boolean | undefined,
+      blockedEmailDomains: undefined as string[] | undefined,
       notification: undefined as
         | { enabled?: boolean; subject?: string; replyToField?: string }
         | undefined
@@ -173,6 +175,54 @@ describe("form Worker", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: "Email field must be valid: email"
+    });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("rejects free email providers when business email is required", async () => {
+    const { db, env } = makeEnv({
+      contact: { ...baseConfig().contact, requireBusinessEmail: true }
+    });
+
+    const response = await worker.fetch(
+      post({ email: "person@gmail.com", message: "Hello", website: "" }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email field must be a work email: email"
+    });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("accepts work email addresses when business email is required", async () => {
+    const { db, env } = makeEnv({
+      contact: { ...baseConfig().contact, requireBusinessEmail: true }
+    });
+
+    const response = await worker.fetch(
+      post({ email: ["sender", "acme.co"].join("@"), message: "Hello", website: "" }),
+      env
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+  });
+
+  it("rejects custom blocked email domains", async () => {
+    const { db, env } = makeEnv({
+      contact: { ...baseConfig().contact, blockedEmailDomains: ["example.test"] }
+    });
+
+    const response = await worker.fetch(
+      post({ email: testEmail(), message: "Hello", website: "" }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email field must be a work email: email"
     });
     expect(db.inserts).toHaveLength(0);
   });
