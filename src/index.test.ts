@@ -191,7 +191,7 @@ describe("form Worker", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "Email field must be a work email: email"
+      error: "Please use your work email address."
     });
     expect(db.inserts).toHaveLength(0);
   });
@@ -222,7 +222,7 @@ describe("form Worker", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "Email field must be a work email: email"
+      error: "Please use your work email address."
     });
     expect(db.inserts).toHaveLength(0);
   });
