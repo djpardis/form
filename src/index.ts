@@ -18,6 +18,8 @@ type FormConfig = {
   maxLinks?: number;
   honeypotFields?: string[];
   turnstile?: boolean;
+  requireBusinessEmail?: boolean;
+  blockedEmailDomains?: string[];
   notification?: EmailNotificationConfig;
 };
 
@@ -35,6 +37,31 @@ type ParsedSubmission = {
 };
 
 const DEFAULT_HONEYPOT_FIELDS = ["website", "url", "company"];
+
+// Free and personal email providers blocked when a form sets
+// `requireBusinessEmail`. Operators can add more through `blockedEmailDomains`.
+const FREE_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "outlook.fr", "outlook.de",
+  "outlook.es", "outlook.com.br", "hotmail.com", "hotmail.co.uk", "hotmail.fr",
+  "hotmail.de", "hotmail.es", "hotmail.it", "live.com", "live.co.uk", "live.ca",
+  "live.fr", "live.de", "msn.com", "icloud.com", "me.com", "mac.com",
+  "aol.com", "aim.com",
+  "yahoo.com", "yahoo.co.uk", "yahoo.ca", "yahoo.fr", "yahoo.de", "yahoo.es",
+  "yahoo.it", "yahoo.com.br", "yahoo.co.in", "yahoo.co.jp", "ymail.com", "rocketmail.com",
+  "proton.me", "protonmail.com", "protonmail.ch", "pm.me", "tutanota.com",
+  "tuta.io", "hushmail.com", "hey.com", "fastmail.com", "zoho.com", "mail.com",
+  "gmx.com", "gmx.net", "gmx.de", "gmx.us",
+  "web.de", "t-online.de", "freenet.de", "orange.fr", "free.fr", "laposte.net",
+  "sfr.fr", "wanadoo.fr",
+  "yandex.com", "yandex.ru", "mail.ru", "inbox.ru", "list.ru", "bk.ru", "rambler.ru",
+  "qq.com", "163.com", "126.com", "sina.com", "sina.cn", "foxmail.com", "yeah.net",
+  "aliyun.com", "naver.com", "daum.net", "hanmail.net", "rediffmail.com",
+  "bol.com.br", "uol.com.br", "terra.com.br", "ig.com.br",
+  "comcast.net", "verizon.net", "att.net", "sbcglobal.net", "cox.net",
+  "btinternet.com", "ntlworld.com", "blueyonder.co.uk", "virginmedia.com",
+  "mailinator.com", "guerrillamail.com", "10minutemail.com", "trashmail.com",
+  "yopmail.com", "temp-mail.org", "getnada.com", "dispostable.com"
+]);
 const RESERVED_FIELDS = new Set([
   "_subject",
   "cf-turnstile-response",
@@ -187,6 +214,8 @@ function validateFormConfig(
     maxLinks: optionalNonNegativeInteger(config, formId, "maxLinks"),
     honeypotFields: optionalStringArray(config, formId, "honeypotFields"),
     turnstile: optionalBoolean(config, formId, "turnstile"),
+    requireBusinessEmail: optionalBoolean(config, formId, "requireBusinessEmail"),
+    blockedEmailDomains: optionalStringArray(config, formId, "blockedEmailDomains"),
     notification: optionalNotification(config, formId)
   };
 }
@@ -400,13 +429,26 @@ function validateSubmission(
     }
   }
 
+  const blockedEmailDomains = buildBlockedEmailDomains(config);
+
   for (const field of config.emailFields ?? []) {
     const value = submission.fields[field];
 
-    if (value && !isValidEmail(value)) {
+    if (!value) {
+      continue;
+    }
+
+    if (!isValidEmail(value)) {
       return {
         ok: false,
         reason: `Email field must be valid: ${field}`
+      };
+    }
+
+    if (blockedEmailDomains.size > 0 && isBlockedEmailDomain(value, blockedEmailDomains)) {
+      return {
+        ok: false,
+        reason: `Email field must be a work email: ${field}`
       };
     }
   }
@@ -427,6 +469,31 @@ function validateSubmission(
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function buildBlockedEmailDomains(config: FormConfig): Set<string> {
+  const blocked = new Set<string>();
+
+  if (config.requireBusinessEmail) {
+    for (const domain of FREE_EMAIL_DOMAINS) {
+      blocked.add(domain);
+    }
+  }
+
+  for (const domain of config.blockedEmailDomains ?? []) {
+    blocked.add(domain.trim().toLowerCase());
+  }
+
+  return blocked;
+}
+
+function isBlockedEmailDomain(value: string, blocked: Set<string>): boolean {
+  const at = value.lastIndexOf("@");
+  if (at === -1) {
+    return false;
+  }
+
+  return blocked.has(value.slice(at + 1).trim().toLowerCase());
 }
 
 function isTodayOrFutureDate(value: string): boolean {
