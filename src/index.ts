@@ -448,7 +448,7 @@ function validateSubmission(
     if (blockedEmailDomains.size > 0 && isBlockedEmailDomain(value, blockedEmailDomains)) {
       return {
         ok: false,
-        reason: `Email field must be a work email: ${field}`
+        reason: "Please use your work email address."
       };
     }
   }

@@ -87,7 +87,7 @@ Set `requireBusinessEmail` to reject `emailFields` that use a free or personal p
 }
 ```
 
-Blocked addresses get `Email field must be a work email: <field>`. Embedded pages should mirror this client-side for a faster message; the Worker is the enforcement point.
+Blocked addresses are rejected with `Please use your work email address.`, which embedded pages can display as-is. The Worker is the enforcement point.
 
 ## Embedded form
 
