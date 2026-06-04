@@ -74,6 +74,21 @@ Use `requiredFields` only for fields your form must collect:
 }
 ```
 
+Set `requireBusinessEmail` to reject `emailFields` that use a free or personal provider (Gmail, Outlook, Yahoo, iCloud, disposable inboxes, and similar). Add `blockedEmailDomains` to block more domains, with or without `requireBusinessEmail`:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "emailFields": ["email"],
+    "requireBusinessEmail": true,
+    "blockedEmailDomains": ["competitor.example"]
+  }
+}
+```
+
+Blocked addresses get `Email field must be a work email: <field>`. Embedded pages should mirror this client-side for a faster message; the Worker is the enforcement point.
+
 ## Embedded form
 
 Point your form at the deployed Worker endpoint for the matching form id:
