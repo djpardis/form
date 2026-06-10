@@ -17,6 +17,7 @@ type FormConfig = {
   minLength?: Record<string, number>;
   maxLinks?: number;
   honeypotFields?: string[];
+  blockedPhrases?: string[];
   turnstile?: boolean;
   requireBusinessEmail?: boolean;
   blockedEmailDomains?: string[];
@@ -213,6 +214,7 @@ function validateFormConfig(
     minLength: optionalStringToIntMap(config, formId, "minLength"),
     maxLinks: optionalNonNegativeInteger(config, formId, "maxLinks"),
     honeypotFields: optionalStringArray(config, formId, "honeypotFields"),
+    blockedPhrases: optionalStringArray(config, formId, "blockedPhrases"),
     turnstile: optionalBoolean(config, formId, "turnstile"),
     requireBusinessEmail: optionalBoolean(config, formId, "requireBusinessEmail"),
     blockedEmailDomains: optionalStringArray(config, formId, "blockedEmailDomains"),
@@ -531,6 +533,10 @@ async function checkSpam(
     return { ok: false };
   }
 
+  if (containsBlockedPhrase(submission.fields, config.blockedPhrases ?? [])) {
+    return { ok: false };
+  }
+
   const turnstileRequired = config.turnstile ?? true;
   if (turnstileRequired) {
     if (!submission.turnstileToken || !env.TURNSTILE_SECRET_KEY) {
@@ -587,6 +593,15 @@ function countLinks(fields: Record<string, string>): number {
   return Object.values(fields).reduce((count, value) => {
     return count + (value.match(/https?:\/\//gi)?.length ?? 0);
   }, 0);
+}
+
+function containsBlockedPhrase(
+  fields: Record<string, string>,
+  blockedPhrases: string[]
+): boolean {
+  if (blockedPhrases.length === 0) return false;
+  const haystack = Object.values(fields).join(" ").toLowerCase();
+  return blockedPhrases.some((phrase) => haystack.includes(phrase.toLowerCase()));
 }
 
 async function sendNotificationEmail(
