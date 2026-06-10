@@ -35,10 +35,12 @@ function baseConfig() {
       requiredFields: ["email", "message"],
       emailFields: ["email"],
       dateFields: [] as string[],
+      minLength: undefined as Record<string, number> | undefined,
       maxLinks: 2,
       turnstile: false,
       requireBusinessEmail: undefined as boolean | undefined,
       blockedEmailDomains: undefined as string[] | undefined,
+      blockedPhrases: undefined as string[] | undefined,
       notification: undefined as
         | { enabled?: boolean; subject?: string; replyToField?: string }
         | undefined
@@ -124,6 +126,69 @@ describe("form Worker", () => {
     );
 
     expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("does not store submissions that contain a blocked phrase", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        blockedPhrases: ["opt out", "unsubscribe"]
+      }
+    });
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Respond with stop to opt out.",
+        website: ""
+      }),
+      env
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("stores submissions that do not match any blocked phrase", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        blockedPhrases: ["opt out", "unsubscribe"]
+      }
+    });
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello, I have a question about your product.",
+        website: ""
+      }),
+      env
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+  });
+
+  it("rejects submissions that are too short for a minLength field", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        minLength: { message: 20 }
+      }
+    });
+
+    const response = await worker.fetch(
+      post({ email: testEmail(), message: "Hi", website: "" }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Field too short: message (minimum 20 characters)"
+    });
     expect(db.inserts).toHaveLength(0);
   });
 
