@@ -393,7 +393,7 @@ describe("form Worker", () => {
     expect(body.html).toBeUndefined();
   });
 
-  it("preserves DJ capitalization in notification labels", async () => {
+  it("preserves field-name capitalization in notification labels", async () => {
     const { db, env } = makeEnv();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("{}", {
@@ -406,8 +406,9 @@ describe("form Worker", () => {
       post({
         email: testEmail(),
         message: "Hello",
-        dj_name: "Example",
-        dj_software: "Serato DJ Pro"
+        DJ_name: "Example",
+        DJ_software: "Serato DJ Pro",
+        URL: "https://example.com"
       }),
       {
         ...env,
@@ -424,6 +425,7 @@ describe("form Worker", () => {
     const body = JSON.parse(String(request.body));
     expect(body.text).toContain("DJ name:\nExample");
     expect(body.text).toContain("DJ software:\nSerato DJ Pro");
+    expect(body.text).toContain("URL:\nhttps://example.com");
   });
 
   it("uses a form-specific notification subject", async () => {
