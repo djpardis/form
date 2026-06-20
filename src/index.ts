@@ -663,6 +663,7 @@ function formatEmailBody(
   timeZone?: string
 ): string {
   const fieldLines = Object.entries(fields)
+    .filter(([, value]) => value.trim() !== "")
     .map(([key, value]) => `${formatLabel(key)}:\n${value}`)
     .join("\n\n");
 
@@ -679,7 +680,13 @@ function formatLabel(value: string): string {
   const normalized = value.replace(/[-_]+/g, " ").trim();
   if (!normalized) return value;
 
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  return normalized
+    .split(" ")
+    .map((word, index) => {
+      if (word.toLowerCase() === "dj") return "DJ";
+      return index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+    })
+    .join(" ");
 }
 
 function formatSubmittedAt(submittedAt: string, timeZone?: string): string {

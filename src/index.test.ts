@@ -388,9 +388,42 @@ describe("form Worker", () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
     const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
     const body = JSON.parse(String(request.body));
-    expect(body.text).toContain("Website:\n");
+    expect(body.text).not.toContain("Website:");
     expect(body.text).not.toContain("(blank)");
     expect(body.html).toBeUndefined();
+  });
+
+  it("preserves DJ capitalization in notification labels", async () => {
+    const { db, env } = makeEnv();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        dj_name: "Pardis",
+        dj_software: "Serato DJ Pro"
+      }),
+      {
+        ...env,
+        RESEND_API_KEY: "re_test_key",
+        NOTIFICATION_TO: "PRIVATE_DESTINATION_ADDRESS",
+        EMAIL_FROM: "PRIVATE_VERIFIED_SENDER"
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(request.body));
+    expect(body.text).toContain("DJ name:\nPardis");
+    expect(body.text).toContain("DJ software:\nSerato DJ Pro");
   });
 
   it("uses a form-specific notification subject", async () => {
