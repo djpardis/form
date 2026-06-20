@@ -683,7 +683,6 @@ function formatLabel(value: string): string {
   return normalized
     .split(" ")
     .map((word, index) => {
-      if (word.toLowerCase() === "dj") return "DJ";
       return index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word;
     })
     .join(" ");
