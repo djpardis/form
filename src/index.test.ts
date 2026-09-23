@@ -38,11 +38,20 @@ function baseConfig() {
       minLength: undefined as Record<string, number> | undefined,
       maxLinks: 2,
       turnstile: false,
+      turnstileAction: undefined as string | undefined,
+      turnstileHostnames: undefined as string[] | undefined,
       requireBusinessEmail: undefined as boolean | undefined,
       blockedEmailDomains: undefined as string[] | undefined,
       blockedPhrases: undefined as string[] | undefined,
       notification: undefined as
-        | { enabled?: boolean; subject?: string; replyToField?: string }
+        | {
+            enabled?: boolean;
+            subject?: string;
+            subjectField?: string;
+            subjectPrefix?: string;
+            fallbackSubject?: string;
+            replyToField?: string;
+          }
         | undefined
     }
   };
@@ -172,6 +181,105 @@ describe("form Worker", () => {
     expect(db.inserts).toHaveLength(1);
   });
 
+  it("stores Turnstile action and hostname checks when they match", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        turnstile: true,
+        turnstileAction: "contact",
+        turnstileHostnames: ["site.test"]
+      }
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        success: true,
+        action: "contact",
+        hostname: "site.test"
+      })
+    );
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        turnstileToken: "token",
+        website: ""
+      }),
+      { ...env, TURNSTILE_SECRET_KEY: "turnstile_secret" }
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    const checks = JSON.parse(String(db.inserts[0]?.[7]));
+    expect(checks).toMatchObject({
+      turnstile: "verified",
+      turnstileAction: "contact",
+      turnstileHostname: "site.test"
+    });
+  });
+
+  it("does not store submissions with a Turnstile action mismatch", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        turnstile: true,
+        turnstileAction: "contact"
+      }
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        success: true,
+        action: "signup",
+        hostname: "site.test"
+      })
+    );
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        turnstileToken: "token",
+        website: ""
+      }),
+      { ...env, TURNSTILE_SECRET_KEY: "turnstile_secret" }
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("does not store submissions with a Turnstile hostname mismatch", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        turnstile: true,
+        turnstileHostnames: ["site.test"]
+      }
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        success: true,
+        action: "contact",
+        hostname: "other.test"
+      })
+    );
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        message: "Hello",
+        turnstileToken: "token",
+        website: ""
+      }),
+      { ...env, TURNSTILE_SECRET_KEY: "turnstile_secret" }
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(db.inserts).toHaveLength(0);
+  });
+
   it("rejects submissions that are too short for a minLength field", async () => {
     const { db, env } = makeEnv({
       contact: {
@@ -208,6 +316,34 @@ describe("form Worker", () => {
       error: "Origin not allowed"
     });
     expect(db.inserts).toHaveLength(0);
+  });
+
+  it("allows local preview origins when localhost is allowed", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        allowedOrigins: ["localhost"]
+      }
+    });
+
+    for (const origin of [
+      "http://localhost:4000",
+      "http://127.0.0.1:4020",
+      "http://0.0.0.0:4020"
+    ]) {
+      const response = await worker.fetch(
+        post(
+          { email: testEmail(), message: "Hello", website: "" },
+          { origin }
+        ),
+        env
+      );
+
+      expect(response.status).toBe(202);
+      expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+    }
+
+    expect(db.inserts).toHaveLength(3);
   });
 
   it("returns clear errors for invalid form config", async () => {
@@ -460,6 +596,90 @@ describe("form Worker", () => {
     const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       subject: "Form-specific notification subject"
+    });
+  });
+
+  it("builds notification subjects from a submitted subject field", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        notification: {
+          subjectField: "subject",
+          subjectPrefix: "djpardis.com - ",
+          fallbackSubject: "New message"
+        }
+      }
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        subject: "Coffee",
+        message: "Hello",
+        website: ""
+      }),
+      {
+        ...env,
+        RESEND_API_KEY: "re_test_key",
+        NOTIFICATION_TO: "PRIVATE_DESTINATION_ADDRESS",
+        EMAIL_FROM: "PRIVATE_VERIFIED_SENDER"
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      subject: "djpardis.com - Coffee"
+    });
+  });
+
+  it("uses a fallback notification subject when the submitted subject is empty", async () => {
+    const { db, env } = makeEnv({
+      contact: {
+        ...baseConfig().contact,
+        notification: {
+          subjectField: "subject",
+          subjectPrefix: "djpardis.com - ",
+          fallbackSubject: "New message"
+        }
+      }
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    const response = await worker.fetch(
+      post({
+        email: testEmail(),
+        subject: "  ",
+        message: "Hello",
+        website: ""
+      }),
+      {
+        ...env,
+        RESEND_API_KEY: "re_test_key",
+        NOTIFICATION_TO: "PRIVATE_DESTINATION_ADDRESS",
+        EMAIL_FROM: "PRIVATE_VERIFIED_SENDER"
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      subject: "New message"
     });
   });
 

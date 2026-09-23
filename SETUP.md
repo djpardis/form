@@ -89,6 +89,26 @@ Set `requireBusinessEmail` to reject `emailFields` that use a free or personal p
 
 Blocked addresses are rejected with `Please use your work email address.`, which embedded pages can display as-is. The Worker is the enforcement point.
 
+Set `turnstile` to `true` when a form should require Cloudflare Turnstile.
+Use `turnstileAction` and `turnstileHostnames` to make the server verify that
+the token was minted for the expected frontend surface:
+
+```json
+{
+  "contact": {
+    "allowedOrigins": ["https://example.com"],
+    "requiredFields": ["email", "message"],
+    "turnstile": true,
+    "turnstileAction": "contact",
+    "turnstileHostnames": ["example.com"]
+  }
+}
+```
+
+Production hostname lists should contain only production hostnames. Keep
+`localhost` in `allowedOrigins` for local form testing, but do not include it in
+`turnstileHostnames` for production deployments.
+
 ## Embedded form
 
 Point your form at the deployed Worker endpoint for the matching form id:
@@ -106,6 +126,22 @@ The form id in the path, `contact` above, must match a key in `FORM_CONFIG`. The
 Set `RESEND_API_KEY`, `NOTIFICATION_TO`, and `EMAIL_FROM` to enable accepted-submission email notifications. `EMAIL_FROM` must use a sender verified in Resend.
 
 Set `notification.subject` inside each form's `FORM_CONFIG` when you need a custom email subject.
+
+To build the notification subject from a submitted field, set
+`notification.subjectField`. `subjectPrefix` is prepended when the submitted
+field is present, and `fallbackSubject` is used when it is blank:
+
+```json
+{
+  "contact": {
+    "notification": {
+      "subjectField": "subject",
+      "subjectPrefix": "example.com - ",
+      "fallbackSubject": "New message"
+    }
+  }
+}
+```
 
 Set `NOTIFICATION_TIME_ZONE` to an IANA time zone such as `America/Los_Angeles` to render notification timestamps in local time. Without it, notifications use the stored UTC timestamp.
 
@@ -162,7 +198,10 @@ Wrangler creates the DNS record automatically if `example.com` is a zone in your
 
 ## Local origins
 
-During local development the Worker's origin check blocks `localhost` because it is not in `allowedOrigins`. Add the string `"localhost"` to `allowedOrigins` in `.dev.vars` to allow any `http://localhost:*` port without listing each one:
+During local development the Worker's origin check blocks local previews because
+they are not in `allowedOrigins`. Add the string `"localhost"` to
+`allowedOrigins` in `.dev.vars` to allow any `http://localhost:*`,
+`http://127.0.0.1:*`, or `http://0.0.0.0:*` port without listing each one:
 
 ```json
 {
