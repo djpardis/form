@@ -19,6 +19,8 @@ type FormConfig = {
   honeypotFields?: string[];
   blockedPhrases?: string[];
   turnstile?: boolean;
+  turnstileAction?: string;
+  turnstileHostnames?: string[];
   requireBusinessEmail?: boolean;
   blockedEmailDomains?: string[];
   notification?: EmailNotificationConfig;
@@ -29,6 +31,9 @@ type FormsConfig = Record<string, FormConfig>;
 type EmailNotificationConfig = {
   enabled?: boolean;
   subject?: string;
+  subjectField?: string;
+  subjectPrefix?: string;
+  fallbackSubject?: string;
   replyToField?: string;
 };
 
@@ -216,6 +221,8 @@ function validateFormConfig(
     honeypotFields: optionalStringArray(config, formId, "honeypotFields"),
     blockedPhrases: optionalStringArray(config, formId, "blockedPhrases"),
     turnstile: optionalBoolean(config, formId, "turnstile"),
+    turnstileAction: optionalString(config, formId, "turnstileAction"),
+    turnstileHostnames: optionalStringArray(config, formId, "turnstileHostnames"),
     requireBusinessEmail: optionalBoolean(config, formId, "requireBusinessEmail"),
     blockedEmailDomains: optionalStringArray(config, formId, "blockedEmailDomains"),
     notification: optionalNotification(config, formId)
@@ -239,6 +246,9 @@ function optionalNotification(
   return {
     enabled: optionalBoolean(value, formId, "enabled"),
     subject: optionalString(value, formId, "subject"),
+    subjectField: optionalString(value, formId, "subjectField"),
+    subjectPrefix: optionalString(value, formId, "subjectPrefix"),
+    fallbackSubject: optionalString(value, formId, "fallbackSubject"),
     replyToField: optionalString(value, formId, "replyToField")
   };
 }
@@ -538,6 +548,9 @@ async function checkSpam(
   }
 
   const turnstileRequired = config.turnstile ?? true;
+  let verifiedTurnstile:
+    | { success: boolean; action?: string; hostname?: string }
+    | undefined;
   if (turnstileRequired) {
     if (!submission.turnstileToken || !env.TURNSTILE_SECRET_KEY) {
       return { ok: false };
@@ -546,12 +559,16 @@ async function checkSpam(
     const turnstile = await verifyTurnstile(
       env.TURNSTILE_SECRET_KEY,
       submission.turnstileToken,
-      request.headers.get("CF-Connecting-IP") ?? undefined
+      request.headers.get("CF-Connecting-IP") ?? undefined,
+      config.turnstileAction,
+      config.turnstileHostnames ?? []
     );
 
     if (!turnstile.success) {
       return { ok: false };
     }
+
+    verifiedTurnstile = turnstile;
   }
 
   return {
@@ -559,7 +576,9 @@ async function checkSpam(
     checks: {
       honeypot: "clear",
       linkCount: countLinks(submission.fields),
-      turnstile: turnstileRequired ? "verified" : "disabled"
+      turnstile: turnstileRequired ? "verified" : "disabled",
+      turnstileAction: verifiedTurnstile?.action,
+      turnstileHostname: verifiedTurnstile?.hostname
     }
   };
 }
@@ -567,8 +586,10 @@ async function checkSpam(
 async function verifyTurnstile(
   secret: string,
   response: string,
-  remoteip?: string
-): Promise<{ success: boolean }> {
+  remoteip?: string,
+  expectedAction?: string,
+  expectedHostnames: string[] = []
+): Promise<{ success: boolean; action?: string; hostname?: string }> {
   const body = new FormData();
   body.append("secret", secret);
   body.append("response", response);
@@ -586,7 +607,29 @@ async function verifyTurnstile(
     return { success: false };
   }
 
-  return (await turnstileResponse.json()) as { success: boolean };
+  const result = (await turnstileResponse.json()) as {
+    success?: boolean;
+    action?: string;
+    hostname?: string;
+  };
+
+  if (result.success !== true) {
+    return { success: false };
+  }
+
+  if (expectedAction && result.action !== expectedAction) {
+    return { success: false };
+  }
+
+  if (expectedHostnames.length > 0 && !expectedHostnames.includes(result.hostname ?? "")) {
+    return { success: false };
+  }
+
+  return {
+    success: true,
+    action: result.action,
+    hostname: result.hostname
+  };
 }
 
 function countLinks(fields: Record<string, string>): number {
@@ -622,7 +665,7 @@ async function sendNotificationEmail(
 
   const replyToField = config.notification?.replyToField ?? "email";
   const replyTo = submission.fields[replyToField];
-  const subject = config.notification?.subject || `New ${formId} submission`;
+  const subject = resolveNotificationSubject(formId, config, submission);
   const text = formatEmailBody(
     formId,
     submissionId,
@@ -653,6 +696,25 @@ async function sendNotificationEmail(
   } catch (error) {
     console.error("Notification email failed", error);
   }
+}
+
+function resolveNotificationSubject(
+  formId: string,
+  config: FormConfig,
+  submission: ParsedSubmission
+): string {
+  const subjectField = config.notification?.subjectField;
+  const submittedSubject = subjectField ? submission.fields[subjectField]?.trim() : "";
+
+  if (submittedSubject) {
+    return `${config.notification?.subjectPrefix ?? ""}${submittedSubject}`;
+  }
+
+  return (
+    config.notification?.fallbackSubject ||
+    config.notification?.subject ||
+    `New ${formId} submission`
+  );
 }
 
 function formatEmailBody(
@@ -779,7 +841,10 @@ function corsResponse(request: Request, env: Env): Response {
 
 function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
   if (allowedOrigins.includes(origin)) return true;
-  if (allowedOrigins.includes("localhost") && /^http:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  if (
+    allowedOrigins.includes("localhost") &&
+    /^http:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin)
+  ) return true;
   return false;
 }
 
