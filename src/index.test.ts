@@ -105,6 +105,22 @@ describe("form Worker", () => {
     expect(db.inserts).toHaveLength(1);
   });
 
+  it("does not require Turnstile when config omits it", async () => {
+    const config = JSON.parse(JSON.stringify(baseConfig()));
+    delete config.contact.turnstile;
+    const { db, env } = makeEnv(config);
+
+    const response = await worker.fetch(
+      post({ email: testEmail(), message: "Hello", website: "" }),
+      env
+    );
+
+    expect(response.status).toBe(202);
+    expect(db.inserts).toHaveLength(1);
+    const checks = JSON.parse(String(db.inserts[0]?.[7]));
+    expect(checks).toMatchObject({ turnstile: "disabled" });
+  });
+
   it("does not store honeypot spam", async () => {
     const { db, env } = makeEnv();
 

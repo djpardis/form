@@ -89,9 +89,10 @@ Set `requireBusinessEmail` to reject `emailFields` that use a free or personal p
 
 Blocked addresses are rejected with `Please use your work email address.`, which embedded pages can display as-is. The Worker is the enforcement point.
 
-Set `turnstile` to `true` when a form should require Cloudflare Turnstile.
-Use `turnstileAction` and `turnstileHostnames` to make the server verify that
-the token was minted for the expected frontend surface:
+Turnstile is disabled by default. Set `turnstile` to `true` only when a
+form should require Cloudflare Turnstile. Use `turnstileAction` and
+`turnstileHostnames` to make the server verify that the token was minted for
+the expected frontend surface:
 
 ```json
 {

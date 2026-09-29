@@ -547,7 +547,7 @@ async function checkSpam(
     return { ok: false };
   }
 
-  const turnstileRequired = config.turnstile ?? true;
+  const turnstileRequired = config.turnstile ?? false;
   let verifiedTurnstile:
     | { success: boolean; action?: string; hostname?: string }
     | undefined;
