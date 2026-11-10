@@ -190,6 +190,22 @@ Deploy with Wrangler from a checkout of this repository:
 After deploy, wire your embedded form to `POST /submit/:formId`. See
 `examples/contact.html`.
 
+Do not open a new custom domain in a browser, or query it with `curl` or `dig`,
+until Wrangler has created its DNS record. Resolvers cache the "does not exist"
+answer for the zone's negative TTL, which is 30 minutes on Cloudflare, so an
+early lookup makes the form fail on that network even after the deploy
+succeeds. To check a new hostname right after a deploy without that risk, ask
+the zone's authoritative nameserver and pin `curl` to the address it returns:
+
+```bash
+NS=$(dig +short NS example.com | head -1)
+IP=$(dig +short forms.example.com @"$NS" | head -1)
+curl --resolve "forms.example.com:443:$IP" https://forms.example.com/
+```
+
+If a lookup was already made, the form starts working on that network once the
+cached answer expires.
+
 ### Deploying from a separate config repository
 
 Operators who run several deployments can keep their Wrangler configs in their

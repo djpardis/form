@@ -41,6 +41,10 @@ Follow [SETUP.md](SETUP.md#deploy) step by step.
   describes, or ask the user to set the secret in the Cloudflare dashboard.
 - Keep `"localhost"` in `allowedOrigins` so a local preview of the site can
   post to the deployed Worker. The site does not need a local Worker.
+- Do not curl, open, or `dig` a new custom domain before Wrangler creates its
+  DNS record. Resolvers cache the "does not exist" answer for up to 30 minutes,
+  which breaks the form on that network after the deploy succeeds. Check it
+  through the authoritative nameserver, as SETUP.md describes.
 - A deploy is done when the checks in
   [Verify delivery](SETUP.md#verify-delivery) pass. A `{ "ok": true }` response
   alone does not show that the notification email was sent.
