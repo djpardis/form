@@ -24,14 +24,20 @@ Bind each `env.<NAME>` from Cloudflare Secrets or Variables. Runtime behavior is
 | ---------------------- | ------------------------- | ------------ | ------------------------------------------------------------ |
 | `DB`                   | yes                       | D1 binding   | Stores accepted submissions                                  |
 | `FORM_CONFIG`          | yes                       | `[vars]`     | Per-form origin, validation, spam, and notification settings |
-| `TURNSTILE_SECRET_KEY` | when Turnstile is enabled | `secret put` | Verifies Turnstile responses                                 |
-| `IP_HASH_SECRET`       | optional                  | `secret put` | Stores a salted IP hash instead of the raw IP                |
-| `RESEND_API_KEY`       | optional                  | `secret put` | Enables Resend notification emails                           |
+| `TURNSTILE_SECRET_KEY` | when Turnstile is enabled | Worker secret | Verifies Turnstile responses                                 |
+| `IP_HASH_SECRET`       | optional                  | Worker secret | Stores a salted IP hash instead of the raw IP                |
+| `RESEND_API_KEY`       | optional                  | Worker secret | Enables Resend notification emails                           |
 | `NOTIFICATION_TO`      | optional                  | `[vars]`     | Destination for accepted submission notifications            |
 | `EMAIL_FROM`           | optional                  | `[vars]`     | Verified sender used by Resend                               |
 | `NOTIFICATION_TIME_ZONE` | optional                | `[vars]`     | Time zone used in notification email timestamps              |
 
 See `.dev.vars.example` for local values.
+
+Local notification testing can use the same email path as production when the
+ignored local env file includes `RESEND_API_KEY`, `NOTIFICATION_TO`, and
+`EMAIL_FROM`. Keep real local secrets out of git. If local email is not needed,
+omit `RESEND_API_KEY`; submissions will still be accepted and stored locally,
+but notification delivery will be skipped.
 
 ## Form config
 
@@ -115,7 +121,7 @@ Production hostname lists should contain only production hostnames. Keep
 Point your form at the deployed Worker endpoint for the matching form id:
 
 ```html
-<form method="POST" action="https://YOUR_WORKER.YOUR_SUBDOMAIN.workers.dev/submit/contact">
+<form method="POST" action="https://forms.example.com/submit/contact">
 ```
 
 The form id in the path, `contact` above, must match a key in `FORM_CONFIG`. The page origin must also be listed in `allowedOrigins`, including any local preview origins you use during testing.
@@ -144,58 +150,82 @@ field is present, and `fallbackSubject` is used when it is blank:
 }
 ```
 
-Set `NOTIFICATION_TIME_ZONE` to an IANA time zone such as `America/Los_Angeles` to render notification timestamps in local time. Without it, notifications use the stored UTC timestamp.
+Set `NOTIFICATION_TIME_ZONE` to an IANA time zone such as
+`America/Los_Angeles` to render notification timestamps in local time. Without
+it, notifications use the stored UTC timestamp.
+
+### Verify delivery
+
+The JSON response confirms that the Worker accepted the submission. It does not
+prove that the notification email reached the inbox. The Worker stores accepted
+submissions before it calls Resend, and notification errors are written to the
+Worker log as `Notification email failed`.
+
+After configuring a new form or sender, test both parts:
+
+- Submit a valid form and confirm the response contains `{ "ok": true }`.
+- Query D1 and confirm the submission was stored.
+- Tail the Worker during a test submission and confirm the
+  `Notification email accepted` log entry. `Notification email skipped` lists
+  which of `RESEND_API_KEY`, `NOTIFICATION_TO`, and `EMAIL_FROM` the runtime is
+  missing, and `Notification email failed` includes the Resend error.
+- Check the Resend event for the test message. Confirm that the sender domain is
+  verified and that the event reached a delivered state.
+- Check the destination inbox, including spam and filtered tabs.
 
 ## Deploy
 
-Production deploys run through `.github/workflows/deploy.yml`. Merges to
-`main` deploy with the `production` GitHub environment; manual runs can target
-another environment.
+Deploy with Wrangler from a checkout of this repository:
 
-Provision the D1 database, then populate a GitHub environment with the variables
-and secrets below. The workflow generates `wrangler.generated.toml`, applies D1
-migrations, deploys the Worker, syncs secrets, and optionally checks
-`HEALTHCHECK_URL`.
+1. Create the database with `npx wrangler d1 create <database>` and copy the
+   printed `database_name` and `database_id` into the `[[d1_databases]]` block
+   of your Wrangler config.
+2. Set `name`, `FORM_CONFIG`, and the optional notification vars in the same
+   config. For a custom domain, add a route such as
+   `routes = [{ pattern = "forms.example.com", custom_domain = true }]`.
+   Wrangler creates the DNS record when `example.com` is a zone in your
+   Cloudflare account.
+3. Apply migrations with `npx wrangler d1 migrations apply <database> --remote`.
+4. Deploy with `npx wrangler deploy`.
+5. Upload secrets as described below, then run the checks in
+   [Verify delivery](#verify-delivery).
 
-Required environment variables:
+After deploy, wire your embedded form to `POST /submit/:formId`. See
+`examples/contact.html`.
 
-- `WORKER_NAME`
-- `D1_DATABASE_NAME`
-- `D1_DATABASE_ID`
-- `FORM_CONFIG`
+### Deploying from a separate config repository
 
-Common optional environment variables:
+Operators who run several deployments can keep their Wrangler configs in their
+own repository and treat this one as a pinned dependency. Point `main` and
+`migrations_dir` in each config at a checkout of this repository, for example
+`main = "../form/src/index.ts"` and `migrations_dir = "../form/migrations"`, and
+record the `form` commit or tag that the deployments use. Deploy by checking out
+that pinned revision and running `npx wrangler deploy --config <path>`. Upgrading
+then becomes a reviewed change to the pin, rather than an automatic deploy of
+whatever is on `main`.
 
-- `WORKER_CUSTOM_DOMAIN`
-- `WORKERS_DEV`
-- `PREVIEW_URLS`
-- `NOTIFICATION_TO`
-- `EMAIL_FROM`
-- `NOTIFICATION_TIME_ZONE`
-- `HEALTHCHECK_URL`
+### Upload secrets
 
-Required repository or environment secrets:
+Give each site its own Worker, D1 database, and custom domain, with
+`workers_dev = false` and `preview_urls = false` when the Worker should be
+reachable only on that domain. Keep the site's secrets in an ignored env file in
+`KEY=VALUE` form, because Cloudflare does not return secret values after upload
+and the same file serves `wrangler dev --env-file`.
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-
-Optional secrets:
-
-- `TURNSTILE_SECRET_KEY`
-- `IP_HASH_SECRET`
-- `RESEND_API_KEY`
-
-After deploy, wire your embedded form to `POST /submit/:formId`. See `examples/contact.html`.
-
-The Worker is available at `https://<name>.<subdomain>.workers.dev` when
-`workers_dev` is enabled. For a custom domain in the GitHub deployment flow, set
-`WORKER_CUSTOM_DOMAIN`:
+Upload secrets from that file rather than through the hidden `wrangler secret
+put` prompt. The prompt receives no input in a non-interactive shell, and
+Wrangler then uploads an empty value while still reporting success:
 
 ```bash
-WORKER_CUSTOM_DOMAIN=forms.example.com
+npx wrangler versions secret bulk secrets.json --config <config>
+npx wrangler versions deploy <version-id>@100 --config <config> --yes
 ```
 
-Wrangler creates the DNS record automatically if `example.com` is a zone in your Cloudflare account.
+Check `RESEND_API_KEY` against the Resend API before uploading it, so a revoked
+or mistyped key does not replace a working one. If a bad secret reaches
+production, `npx wrangler rollback <version-id> --config <config>` restores the
+earlier version together with its secret values. Finish with the checks in
+[Verify delivery](#verify-delivery).
 
 ## Local origins
 
