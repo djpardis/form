@@ -15,7 +15,7 @@ It returns JSON for same-page success states and supports origin allowlists, req
 
 ## Requirements
 
-- **Node** >= 20
+- **Node** 22 or newer
 - **Cloudflare** account - install [Wrangler](https://developers.cloudflare.com/workers/wrangler/) and run `npx wrangler login`
 - **Resend** account - only needed for email notifications
 
