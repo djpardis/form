@@ -660,6 +660,11 @@ async function sendNotificationEmail(
   }
 
   if (!env.RESEND_API_KEY || !env.NOTIFICATION_TO || !env.EMAIL_FROM) {
+    console.warn("Notification email skipped", {
+      hasResendApiKey: Boolean(env.RESEND_API_KEY),
+      hasNotificationTo: Boolean(env.NOTIFICATION_TO),
+      hasEmailFrom: Boolean(env.EMAIL_FROM)
+    });
     return;
   }
 
@@ -690,8 +695,11 @@ async function sendNotificationEmail(
       })
     });
 
+    const responseText = await response.text();
     if (!response.ok) {
-      console.error("Notification email failed", await response.text());
+      console.error("Notification email failed", responseText);
+    } else {
+      console.log("Notification email accepted", responseText);
     }
   } catch (error) {
     console.error("Notification email failed", error);
