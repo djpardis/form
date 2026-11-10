@@ -1,6 +1,6 @@
 FORM_CONFIG='{
   "contact": {
-    "allowedOrigins": ["http://localhost:8787", "http://localhost:8000"],
+    "allowedOrigins": ["localhost"],
     "requiredFields": ["email", "eventDate", "message"],
     "emailFields": ["email"],
     "dateFields": ["eventDate"],
@@ -14,6 +14,9 @@ FORM_CONFIG='{
 }'
 
 IP_HASH_SECRET="replace-with-random-local-string"
-RESEND_API_KEY="re_replace_with_resend_api_key"
-NOTIFICATION_TO="PRIVATE_DESTINATION_ADDRESS"
-EMAIL_FROM="PRIVATE_VERIFIED_SENDER"
+
+# Leave these blank to store submissions without sending email. Set all three,
+# with EMAIL_FROM on a domain verified in Resend, to send real notifications.
+RESEND_API_KEY=
+NOTIFICATION_TO=
+EMAIL_FROM=
