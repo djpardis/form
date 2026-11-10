@@ -2,23 +2,20 @@
 
 ## Install
 
-```bash
-npm install
-npx wrangler d1 create form_submissions
-npm run db:migrate
-```
-
 For local development:
 
 ```bash
+npm install
 cp .dev.vars.example .dev.vars
 npm run db:migrate:local
 npm run dev
 ```
 
+For production, follow [Deploy](#deploy).
+
 ## Configuration
 
-Bind each `env.<NAME>` from Cloudflare Secrets or Variables. Runtime behavior is the same; Secrets stay out of tracked config.
+Bind each `env.<NAME>` from Cloudflare Secrets or Variables. Runtime behavior is the same; Secrets remain out of tracked config.
 
 | Name                   | Required                  | Set with     | Purpose                                                      |
 | ---------------------- | ------------------------- | ------------ | ------------------------------------------------------------ |

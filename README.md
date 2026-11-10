@@ -21,20 +21,27 @@ It returns JSON for same-page success states and supports origin allowlists, req
 
 ## Quick start
 
+Local development needs no Cloudflare or Resend resources:
+
 ```bash
 npm install
-npx wrangler d1 create form_submissions
-npm run db:migrate
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local
+npm run dev
 ```
 
-Local development: `cp .dev.vars.example .dev.vars && npm run db:migrate:local && npm run dev`.
+The Worker runs at `http://localhost:8787` and stores submissions in a local D1
+database. With the notification settings blank, it skips email. `npm run smoke`
+runs these steps against `.dev.vars.example` and fails on any Worker error.
 
-Full setup, configuration, API, testing, and submission-management details are in [SETUP.md](SETUP.md). The local embedded form example is [examples/contact.html](examples/contact.html).
+To deploy, follow [SETUP.md](SETUP.md#deploy). The embedded form example is
+[examples/contact.html](examples/contact.html).
 
 ## Project docs
 
 - Setup: [SETUP.md](SETUP.md)
 - Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Coding agent instructions: [AGENTS.md](AGENTS.md)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - License: [MIT](LICENSE)
 

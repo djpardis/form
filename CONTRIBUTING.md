@@ -10,10 +10,12 @@ Install dependencies:
 npm install
 ```
 
-Run the test suite:
+Run the checks that CI runs:
 
 ```sh
+npm run check:public-identifiers
 npm test
+npm run smoke
 ```
 
 Start the local Worker:
