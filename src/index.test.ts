@@ -558,8 +558,8 @@ describe("form Worker", () => {
       post({
         email: testEmail(),
         message: "Hello",
-        DJ_name: "Example",
-        DJ_software: "Serato DJ Pro",
+        ID_number: "12345",
+        CRM_tool: "Example CRM",
         URL: "https://example.com"
       }),
       {
@@ -575,8 +575,8 @@ describe("form Worker", () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
     const request = fetchSpy.mock.calls[0]?.[1] as RequestInit;
     const body = JSON.parse(String(request.body));
-    expect(body.text).toContain("DJ name:\nExample");
-    expect(body.text).toContain("DJ software:\nSerato DJ Pro");
+    expect(body.text).toContain("ID number:\n12345");
+    expect(body.text).toContain("CRM tool:\nExample CRM");
     expect(body.text).toContain("URL:\nhttps://example.com");
   });
 
