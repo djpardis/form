@@ -41,6 +41,7 @@ To deploy, follow [SETUP.md](SETUP.md#deploy). The embedded form example is
 
 - Setup: [SETUP.md](SETUP.md)
 - Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security reports: [SECURITY.md](SECURITY.md)
 - Coding agent instructions: [AGENTS.md](AGENTS.md)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - License: [MIT](LICENSE)
