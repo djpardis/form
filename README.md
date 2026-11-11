@@ -1,5 +1,8 @@
 # form
 
+[![CI](https://github.com/djpardis/form/actions/workflows/ci.yml/badge.svg)](https://github.com/djpardis/form/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 <p align="center">
   <img src="assets/hero.png" alt="Vintage gallery interior with art and furniture" width="560">
 </p>
@@ -9,9 +12,6 @@ A lightweight backend for embedded forms that need spam filtering, storage, and 
 `form` runs on [Cloudflare Workers](https://developers.cloudflare.com/workers/), stores accepted submissions in [D1](https://developers.cloudflare.com/d1/), and can send notifications through [Resend](https://resend.com/).
 
 It returns JSON for same-page success states and supports origin allowlists, required fields, email validation, current-or-future date validation, honeypots, Turnstile, and generic success responses for spam.
-
-[![CI](https://github.com/djpardis/form/actions/workflows/ci.yml/badge.svg)](https://github.com/djpardis/form/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Requirements
 
